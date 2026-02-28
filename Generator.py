@@ -1,63 +1,73 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
+from collections import defaultdict
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
 def generate_answer( query, relevant_chunks):
-    context = "\n\n".join(
-        f"Candidate: {doc.metadata.get('candidate_name')}\nSection: {doc.metadata.get('section')}\nContent:{doc.page_content}"
-        for doc in relevant_chunks
-    )
+
+    # chunks that have same candidate_name ----> collect them in same document ------->
+    # to prevent model from seeing same candidate multiple times with different sections. 
+    merged = defaultdict(str)
+    for doc in relevant_chunks:
+       sur =  doc.metadata["candidate_name"]
+       merged[sur] += doc.page_content + "\n"
+
+
     prompt = PromptTemplate(
         input_variables=["context", "query"],
-        template="\n".join(["""
-You are an HR assistant answering questions about job candidates.
+        template=" ".join(["""
+            You are an HR assistant answering questions about job candidates.
 
-You MUST base your answer ONLY on the provided context.
+            You MUST base your answer ONLY on the provided context.
 
-Each context chunk contains:
-- candidate_name
-- section
-- content
+            Each context chunk contains:
+            - candidate_name\n
+            - section\n
+            - content\n
 
-Instructions:
+            Instructions:
 
-1) Identify which candidate(s) match the question.
-2) ALWAYS mention the candidate's real name (candidate_name).
-3) For each candidate, clearly mention:
-   - The candidate's name
-   - The section where the information was found
-   - A short explanation
-4) If multiple candidates match, group the answer by candidate.
-5) If no candidate matches, say:
-   "No candidates were found with that skill."
-6) Do NOT summarize sections without linking them to a candidate.
-7) Do NOT include information that is not in the context.
-8) Do NOT refer to "the document" or "the context".
-9) Respond as if speaking to a recruiter.
+            1) Identify which candidate(s) match the question.
+            2) ALWAYS mention the candidate's real name (candidate_name).
+            3) For each candidate, clearly mention:
+            - The candidate's name
+            - The section where the information was found
+            - A short explanation
+            4) If multiple candidates match, Mention all of them separately.
+            5) If no candidate matches, say:
+            "No candidates were found."
+           
+            6) Do NOT include information that is not in the context.
+            
+            7) Respond as if speaking to a recruiter.
+            8) IF the question is not relevant to the candidates' information except Greetings like "Hello", "Hi", "Good Morning", 
+               say:"The question is not relevant to the candidates' information."
+            9) If asked about years of experience, look for explicit mentions of years in the content, if not mentioned infer years of experience from job durations or dates from experience section.               
 
-Format your answer like this:
+            Format your answer like this:
 
-- Candidate Name:
-  Section:
-  Explanation:
+            - Candidate Name:
+            Section:
+            Explanation:
 
-Context:
-{context}
+            Context:
+            {context}
 
-Question:
-{query}
+            Question:
+            {query}
 
-Answer:
-"""])
+            Answer:
+            """
+        ])
     )
     
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key = os.getenv("GOOGLE_API_KEY"))
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key = os.getenv("GOOGLE_API_KEY"), temperature=0.1)
     parser = StrOutputParser()
     rag_chain = prompt | llm | parser
 
-    answer = rag_chain.invoke({"context": context, "query": query})
+    answer = rag_chain.invoke({"context": merged, "query": query})
 
     return answer

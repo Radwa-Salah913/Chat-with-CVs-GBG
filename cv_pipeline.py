@@ -104,7 +104,7 @@ class CVChunker:
             max_completion_tokens=1024
         )
 
-    # --------------------------------
+    # -------------------------------------------------------------
     def regex_structure_split(self, text: str, source: str) -> Optional[List[Document]]:
 
         pattern = r"(" + "|".join(COMMON_HEADERS) + r")"

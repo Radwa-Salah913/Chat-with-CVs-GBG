@@ -17,6 +17,8 @@ def generate_alternative_queries(query):
         template="""
         You are a helpful assistant that generates alternative phrasings for a given question about candidate CVs.
         Your task is to create 4 different ways to ask the same question, which can help in retrieving more relevant information from CVs.
+        DO NOT change the meaning of the question, only rephrase it.
+        DO NOT repeat the same question, each question must be significantly different in structure or wording.
 
         {question}
         Return each on a new line.
@@ -35,7 +37,7 @@ def generate_alternative_queries(query):
     vectorstore = cv_pipeline.vector_manager.get_vectorstore()
 
     all_docs = []
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 7})
     for q in queries:
         retrieved = retriever.invoke(q)
         all_docs.extend(retrieved)

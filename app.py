@@ -16,10 +16,12 @@ if user_query:
     st.subheader("Answer:")
     st.write(answer)
 
-    st.subheader("Relevant_Chunks:")
+    """st.subheader("Relevant_Chunks:")
     relevant_chunks = [{
         "candidate_name": doc.metadata.get("candidate_name"),
         "section": doc.metadata.get("section"),
         "content": doc.page_content
     } for doc in relevant_chunks]
-    st.write(relevant_chunks)
+    st.write(relevant_chunks)"""
+
+    print(f"Number of relevant chunks: {len(relevant_chunks)}\n")
