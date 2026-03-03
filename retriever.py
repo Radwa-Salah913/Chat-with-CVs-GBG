@@ -7,16 +7,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def generate_alternative_queries(query):
+def generate_alternative_queries(query,collection_name):
 
     # Step 1: generate multiple queries using LLM
     
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key = os.getenv("GOOGLE_API_KEY"), temperature=0.7)
-
+   
     prompt = PromptTemplate(
         template="""
         You are a helpful assistant that generates alternative phrasings for a given question about candidate CVs.
-        Your task is to create 4 different ways to ask the same question, which can help in retrieving more relevant information from CVs.
+        Your task is to create 3 different ways to ask the same question, which can help in retrieving more relevant information from CVs.
         DO NOT change the meaning of the question, only rephrase it.
         DO NOT repeat the same question, each question must be significantly different in structure or wording.
 
@@ -33,11 +33,11 @@ def generate_alternative_queries(query):
     # ---------------------------------------------------------------------
     # Step 2: retrieve top chunks for each query
 
-    cv_pipeline = CVPipeline()
+    cv_pipeline = CVPipeline(collection_name)
     vectorstore = cv_pipeline.vector_manager.get_vectorstore()
 
     all_docs = []
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 7})
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
     for q in queries:
         retrieved = retriever.invoke(q)
         all_docs.extend(retrieved)

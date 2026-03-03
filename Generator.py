@@ -18,19 +18,19 @@ def generate_answer( query, relevant_chunks):
 
     prompt = PromptTemplate(
         input_variables=["context", "query"],
-        template=" ".join(["""
+        template="\n".join(["""
             You are an HR assistant answering questions about job candidates.
 
             You MUST base your answer ONLY on the provided context.
 
             Each context chunk contains:
-            - candidate_name\n
-            - section\n
-            - content\n
+            - candidate_name
+            - section
+            - content
 
             Instructions:
 
-            1) Identify which candidate(s) match the question.
+            1) Identify ALL candidate(s) which match the question.
             2) ALWAYS mention the candidate's real name (candidate_name).
             3) For each candidate, clearly mention:
             - The candidate's name
@@ -45,8 +45,14 @@ def generate_answer( query, relevant_chunks):
             7) Respond as if speaking to a recruiter.
             8) IF the question is not relevant to the candidates' information except Greetings like "Hello", "Hi", "Good Morning", 
                say:"The question is not relevant to the candidates' information."
-            9) If asked about years of experience, look for explicit mentions of years in the content, if not mentioned infer years of experience from job durations or dates from experience section.               
-
+                but If the question is a related to the candidates' information but is not answerable based on the provided context, say "The answer is not available in the provided CVs."
+                            
+            9) If asked about years of experience, look for explicit mentions of years in the content, if not mentioned infer years of experience from job durations or dates from experience section.
+       
+           10) If the question ask you to response in a specific format like "Answer in one line", "Answer in bullet points", "Answer in a table" YOU MUST follow the instruction and format your answer accordingly, if not specified answer in a concise paragraph.            
+           11) IF the question is asking for an imaginary positions that are not common as a job title search firstly about this position to check if this position is imaginary or not
+                IF is imaginary , say "It is an Imaginary Position." Do NOT hallucinate or infer any answer.
+            
             Format your answer like this:
 
             - Candidate Name:
@@ -64,7 +70,8 @@ def generate_answer( query, relevant_chunks):
         ])
     )
     
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key = os.getenv("GOOGLE_API_KEY"), temperature=0.1)
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key = os.getenv("GOOGLE_API_KEY"), temperature=0.2)
+ 
     parser = StrOutputParser()
     rag_chain = prompt | llm | parser
 
