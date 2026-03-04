@@ -1,6 +1,8 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
+from langchain_community.retrievers import BM25Retriever
+from langchain_classic.retrievers import EnsembleRetriever
 from cv_pipeline import CVPipeline
 import os
 from dotenv import load_dotenv
@@ -37,9 +39,16 @@ def generate_alternative_queries(query,collection_name):
     vectorstore = cv_pipeline.vector_manager.get_vectorstore()
 
     all_docs = []
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
+    semantic_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+    bm25_retriever = BM25Retriever.from_documents(cv_pipeline.run())
+    bm25_retriever.k = 5
+
+    hybrid_retriever = EnsembleRetriever( retrievers=[bm25_retriever, semantic_retriever], weights=[0.5, 0.5])
+
+    #docs = hybrid_retriever.get_relevant_documents(query)
+
     for q in queries:
-        retrieved = retriever.invoke(q)
+        retrieved = hybrid_retriever.invoke(q)
         all_docs.extend(retrieved)
 
     #----------------------------------------------------------------------

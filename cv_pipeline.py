@@ -94,9 +94,12 @@ class CVSections(BaseModel):
     section: List[Section_format] = Field(..., description="List of sections in the CV, each section has a title and content")
 
 
+# Deprecated: CVChunker is retained for reference but is no longer used
+# anywhere in the pipeline.  CVSpliter has replaced its functionality.
 class CVChunker:
 
     def __init__(self):
+        # warning: this class is deprecated and will be removed in the future
         self.model = ChatOpenAI(
             model="openai/gpt-4o-mini",
             base_url="https://openrouter.ai/api/v1",
@@ -200,7 +203,12 @@ class CVChunker:
 
 ###############################################################################################
 class CVSpliter:
-    """Splits CV documents into sections using markdown header detection."""
+    """Splits CV documents into sections using markdown header detection.
+
+    This class has been updated to serve as the sole chunker in the
+    pipeline.  It now accepts :class:`Document` objects (like
+    ``CVChunker`` did) and returns a list of properly-tagged chunks.
+    """
     
     def __init__(self):
         self.headers_to_split_on = [
@@ -209,57 +217,26 @@ class CVSpliter:
         ]
     
     def _is_heading(self, line: str) -> bool:
-        """
-        Determines if a line is a heading based on heuristic rules.
-        
-        Args:
-            line: The line to check
-            
-        Returns:
-            True if the line appears to be a heading, False otherwise
-        """
+        """Determine if a line should be treated as a markdown heading."""
         stripped = line.strip()
-        
-        # Empty line
         if not stripped:
             return False
-        
-        # Too long to be a header
         if len(stripped) > 60:
             return False
-        
-        # Ends with period? Usually a paragraph
         if stripped.endswith('.'):
             return False
-        
-        # Too many words? Usually not a header
         if len(stripped.split()) > 6:
             return False
-        
-        # Too many digits? Usually not a header
         if sum(c.isdigit() for c in stripped) > 3:
             return False
-        
-        # Check for Title Case or ALL CAPS
         if stripped.istitle() or stripped.isupper():
             return True
-        
         return False
     
     def _auto_convert_to_markdown(self, text: str) -> str:
-        """
-        Automatically converts text to markdown format with proper headers.
-        
-        Args:
-            text: The raw text to convert
-            
-        Returns:
-            Markdown formatted text
-        """
+        """Normalize raw text into markdown with headers."""
         lines = text.split("\n")
         new_lines = []
-        
-        # Make first non-empty line a main header
         first_line_added = False
 
         for line in lines:
@@ -267,40 +244,28 @@ class CVSpliter:
                 new_lines.append(f"# {line.strip()}")
                 first_line_added = True
                 continue
-            
             if self._is_heading(line):
                 new_lines.append(f"\n## {line.strip()}\n")
             else:
                 new_lines.append(line)
-
         return "\n".join(new_lines)
     
-    def split(self, file_path: str) -> List[Document]:
-        """
-        Converts a CV file to markdown and splits it by headers.
-        
-        Args:
-            file_path: Path to the CV document (PDF or DOCX)
-            
-        Returns:
-            List of Document objects, each representing a section
-        """
-        # Convert document to markdown
-        markdown_text = pymupdf4llm.to_markdown(file_path)
-        
-        # Auto-convert to proper markdown format
-        markdown_text = self._auto_convert_to_markdown(markdown_text)
-        
-        # Split by headers
+    def split(self, document: Document) -> List[Document]:
+
+        text = document.page_content
+        source = document.metadata.get("source", "")
+        candidate_name = os.path.splitext(ntpath.basename(source))[0]
+
+        markdown_text = self._auto_convert_to_markdown(text)
+
         splitter = MarkdownHeaderTextSplitter(self.headers_to_split_on)
         docs = splitter.split_text(markdown_text)
-        
-        # Add metadata
-        candidate_name = os.path.splitext(ntpath.basename(file_path))[0]
+
         for doc in docs:
-            doc.metadata["source"] = file_path
+            doc.metadata["source"] = source
             doc.metadata["candidate_name"] = candidate_name
-        
+            doc.metadata["section"] = doc.metadata.get("section", "Unknown Section")
+
         return docs
 
 
@@ -372,6 +337,7 @@ class CVPipeline:
 
     def __init__(self,collection_name: str):
         self.loader = CVLoader()
+        # switch to our markdown-based splitter; CVChunker is no longer used anywhere
         self.chunker = CVSpliter()
         self.vector_manager = VectorStoreManager(collection_name)
 
@@ -380,7 +346,8 @@ class CVPipeline:
 
         final_chunks = []
         for doc in docs:
-            chunks = self.chunker.hybrid_chunk(doc)
+            # CVSpliter expects a Document object
+            chunks = self.chunker.split(doc)
             final_chunks.extend(chunks)
 
         self.vector_manager.add_documents(final_chunks)

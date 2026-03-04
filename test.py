@@ -1,83 +1,94 @@
 
 import os
-import re
-from langchain_text_splitters import MarkdownHeaderTextSplitter
-import pymupdf4llm  
+from dotenv import load_dotenv
+load_dotenv()
+from langchain_unstructured import UnstructuredLoader
+
 root_path = os.path.dirname(os.path.abspath(__file__))
-dir_path = os.path.join(root_path,"assets","temp_uploads","Radwa Salah AI Engineer.docx")
+path = os.path.join(root_path,"assets","temp_uploads","MennatAllah Ibrahim Kamal Khalil AI .pdf")
+
+
+"""loader = UnstructuredLoader(
+    file_path=path,
+    chunking_strategy="by_title",
+    # كبري الرقم ده عشان يسحب السيكشن باللي فيه من غير ما يقطعه
+    #max_characters=3000, 
+    # اطلبي منه يدمج العناصر الصغيرة اللي تحت بعضها (زي الـ Bullet points)
+    combine_under_n_chars=600, 
+    # ده هيمنع إنه يعتبر كلمة Bold صغيرة سيكشن جديد لوحدها
+    new_after_n_chars=5000, 
+)
+
+docs = loader.load()
 
 
 
-markdown_text = pymupdf4llm.to_markdown(dir_path)
-def is_heading(line):
-    stripped = line.strip()
+
+
+
+
     
-    # فاضي
-    if not stripped:
-        return False
-    
-    # طويل جدًا؟ يبقى مش header
-    if len(stripped) > 60:
-        return False
-    
-    # فيه نقطة في الآخر؟ غالبًا paragraph
-    if stripped.endswith('.'):
-        return False
-    
-    # عدد الكلمات كبير؟ يبقى مش header
-    if len(stripped.split()) > 6:
-        return False
-    
-    # فيه أرقام كتير؟ غالبًا مش header
-    if sum(c.isdigit() for c in stripped) > 3:
-        return False
-    
-    # شكل Title Case أو ALL CAPS
-    if stripped.istitle() or stripped.isupper():
-        return True
-    
-    return False
-
-def auto_convert_to_markdown(text):
-    lines = text.split("\n")
-    new_lines = []
-    
-    # أول سطر نخليه عنوان رئيسي
-    first_line_added = False
-
-    for line in lines:
-        if not first_line_added and line.strip():
-            new_lines.append(f"# {line.strip()}")
-            first_line_added = True
-            continue
-        
-        if is_heading(line):
-            new_lines.append(f"\n## {line.strip()}\n")
-        else:
-            new_lines.append(line)
-
-    return "\n".join(new_lines)
-
-
-
-"""headers_to_split_on = [
-    ("#", "title"),
-    ("##", "section"),
-    ("###", "subsection"),
-]"""
-
-markdown_text = auto_convert_to_markdown(markdown_text)
-
-headers_to_split_on = [
-    ("#", "candidate"),
-    ("##", "section"),
-]
-
-splitter = MarkdownHeaderTextSplitter(headers_to_split_on)
-
-docs = splitter.split_text(markdown_text)
-
 for doc in docs:
-    print(doc.metadata,"\n")
-    print(doc.page_content,"\n")
-    print("--------------------------------------------------------------------------------------\n")
+    print("Metadata:", doc.metadata,"\n\n")
+    print("Content:\n", doc.page_content)
+    print(len(doc.page_content),"\n")
+    print("-" * 50)"""
+###############################################################
+from unstructured.partition.pdf import partition_pdf
+
+from langchain_core.documents import Document
+
+elements = partition_pdf(path)
+for el in elements:
+    if type(el).__name__ == "Title":
+        print("TITLE →", el.text)
+        print("-" * 40)
+"""sections = []
+current_section = None
+
+i = 0
+while i < len(elements):
+
+    element = elements[i]
+
+    if element.category == "Title":
+
+        # نحسب عدد العناصر اللي بعده لحد Title جديد
+        content_block = []
+        j = i + 1
+
+        while j < len(elements) and elements[j].category != "Title":
+            content_block.append(elements[j])
+            j += 1
+
+        # لو البلوك اللي بعده كبير → Section حقيقي
+        if len(content_block) >= 3:
+            if current_section:
+                sections.append(current_section)
+
+            current_section = {
+                "title": element.text.strip(),
+                "content": [e.text.strip() for e in content_block]
+            }
+
+        else:
+            # غالبًا Subsection → ضيفه داخل نفس القسم
+            if current_section:
+                current_section["content"].append(element.text.strip())
+                current_section["content"].extend(
+                    [e.text.strip() for e in content_block]
+                )
+
+        i = j
+
+    else:
+        i += 1
+
+# حفظ آخر واحد
+if current_section:
+    sections.append(current_section)
+
+for sec in sections:
+    print("Section Title:", sec["title"])
+    print("Content:", sec["content"])
+    print("-" * 50)"""

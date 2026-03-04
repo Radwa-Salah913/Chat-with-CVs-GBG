@@ -27,7 +27,13 @@ def generate_answer( query, relevant_chunks):
             - candidate_name
             - section
             - content
+            
+            Context:
+            {context}
 
+            Question:
+            {query}
+                            
             Instructions:
 
             1) Identify ALL candidate(s) which match the question.
@@ -47,11 +53,15 @@ def generate_answer( query, relevant_chunks):
                say:"The question is not relevant to the candidates' information."
                 but If the question is a related to the candidates' information but is not answerable based on the provided context, say "The answer is not available in the provided CVs."
                             
-            9) If asked about years of experience, look for explicit mentions of years in the content, if not mentioned infer years of experience from job durations or dates from experience section.
+            9) If asked about years of experience, first look for explicit mentions of total years in the content. 
+                If not explicitly mentioned, infer the years of experience from job durations or employment dates in the experience section. 
+                If a position is marked as "Present" or "Now", assume it refers to today's date , Search for today date and calculate the duration accordingly. 
+                Always use the current date when calculating ongoing roles.
        
            10) If the question ask you to response in a specific format like "Answer in one line", "Answer in bullet points", "Answer in a table" YOU MUST follow the instruction and format your answer accordingly, if not specified answer in a concise paragraph.            
-           11) IF the question is asking for an imaginary positions that are not common as a job title search firstly about this position to check if this position is imaginary or not
-                IF is imaginary , say "It is an Imaginary Position." Do NOT hallucinate or infer any answer.
+           11) If the question refers to a job title that is uncommon or potentially imaginary, first verify whether such a position actually exists. 
+                If the position is imaginary or does not exist, respond with: "It is an imaginary position." 
+                Do NOT hallucinate or infer any information.
             
             Format your answer like this:
 
@@ -59,11 +69,7 @@ def generate_answer( query, relevant_chunks):
             Section:
             Explanation:
 
-            Context:
-            {context}
 
-            Question:
-            {query}
 
             Answer:
             """
