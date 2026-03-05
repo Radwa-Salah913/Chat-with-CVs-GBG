@@ -9,11 +9,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def generate_alternative_queries(query,collection_name):
+def generate_alternative_queries(query, vectorstore, docs):
 
     # Step 1: generate multiple queries using LLM
     
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key = os.getenv("GOOGLE_API_KEY"), temperature=0.7)
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key = os.getenv("GOOGLE_API_KEY3"), temperature=0.5)
    
     prompt = PromptTemplate(
         template="""
@@ -35,15 +35,14 @@ def generate_alternative_queries(query,collection_name):
     # ---------------------------------------------------------------------
     # Step 2: retrieve top chunks for each query
 
-    cv_pipeline = CVPipeline(collection_name)
-    vectorstore = cv_pipeline.vector_manager.get_vectorstore()
+    
 
     all_docs = []
-    semantic_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
-    bm25_retriever = BM25Retriever.from_documents(cv_pipeline.run())
+    semantic_retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
+    bm25_retriever = BM25Retriever.from_documents(docs)
     bm25_retriever.k = 5
 
-    hybrid_retriever = EnsembleRetriever( retrievers=[bm25_retriever, semantic_retriever], weights=[0.5, 0.5])
+    hybrid_retriever = EnsembleRetriever( retrievers=[bm25_retriever, semantic_retriever], weights=[0.4, 0.6])
 
     #docs = hybrid_retriever.get_relevant_documents(query)
 

@@ -3,11 +3,22 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 from langchain_unstructured import UnstructuredLoader
-
+import json 
+from query_router import router
 root_path = os.path.dirname(os.path.abspath(__file__))
 path = os.path.join(root_path,"assets","temp_uploads","MennatAllah Ibrahim Kamal Khalil AI .pdf")
 
 
+path = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(path, "assets", "instructions.json")
+with open(file_path, "r") as f:
+    config = json.load(f)
+
+user_query = "what is years of experience of Menna"
+query_category = router(user_query)
+query_instructions = config[query_category]["instructions"]
+
+print(query_instructions)
 """loader = UnstructuredLoader(
     file_path=path,
     chunking_strategy="by_title",
@@ -36,13 +47,13 @@ for doc in docs:
 ###############################################################
 from unstructured.partition.pdf import partition_pdf
 
-from langchain_core.documents import Document
+"""from langchain_core.documents import Document
 
 elements = partition_pdf(path)
 for el in elements:
     if type(el).__name__ == "Title":
         print("TITLE →", el.text)
-        print("-" * 40)
+        print("-" * 40)"""
 """sections = []
 current_section = None
 

@@ -4,7 +4,9 @@ import shutil
 import numpy as np
 from cv_pipeline import CVPipeline
 from retriever import generate_alternative_queries
-from Generator import generate_answer
+from generator2 import generate_final_answer
+from query_router import router
+import json
 
 st.title("CV Question Answering System")
 
@@ -20,7 +22,6 @@ uploaded_files = st.file_uploader(
 
 if "processed" not in st.session_state:
     st.session_state.processed = False
-
 if uploaded_files and not st.session_state.processed:
 
     if len(uploaded_files) != 5:
@@ -44,13 +45,18 @@ if uploaded_files and not st.session_state.processed:
         # generate a unique collection name for each session to prevent conflicts between different users.
         collection_name = "CV_Collection_" + str(np.random.randint(0, 100000))
         print("Collection Name:", collection_name,"\n\n")
+
+        
         with st.spinner("Processing CVs..."):
             pipeline = CVPipeline(collection_name)
-            pipeline.run()  # process + store
+            docs = pipeline.run()  # process + store
+            vectorstore = pipeline.vector_manager.get_vectorstore()
 
         
         st.session_state.processed = True
         st.session_state.collection_name = collection_name
+        st.session_state.docs = docs
+        st.session_state.vectorstore = vectorstore
 
         st.success("CVs processed and stored successfully!")
 
@@ -58,16 +64,28 @@ if uploaded_files and not st.session_state.processed:
 #  Question Section
 # ---------------------------------
 
+
 if st.session_state.processed:
+    path = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(path, "assets", "instructions.json")
+    with open(file_path, "r") as f:
+        config = json.load(f)
 
     user_query = st.text_input("Enter your question about the candidates:")
 
     if user_query:
 
-        relevant_chunks = generate_alternative_queries(user_query,st.session_state.collection_name)
-        answer = generate_answer(user_query, relevant_chunks)
+        relevant_chunks = generate_alternative_queries(user_query, st.session_state.vectorstore, st.session_state.docs)
+        query_category = router(user_query)
 
-        print("NUmber of relevant chunks:", len(relevant_chunks))
+        if query_category == "invalid_role":
+            answer = "Please check if your Question is a actually real question"
+        else:
+            query_instructions = config[query_category]["instructions"]
+            answer = generate_final_answer(user_query, relevant_chunks, query_instructions)
+        
+        print("Query Category : ",query_category)
+        print("NUmber of relevant chunks :", len(relevant_chunks),"\n")
         
         st.subheader("Answer:")
         st.write(answer)
