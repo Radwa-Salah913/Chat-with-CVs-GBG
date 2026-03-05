@@ -15,6 +15,12 @@ This repository contains a simple implementation of a Retrieval-Augmented Genera
 
 3. **Generator**: This component takes the retrieved chunks and generates a coherent answer to the user's question using a language model.
 
+4. **query_router**: This component is responsible for routing the user's query to the appropriate retriever based on the content of the query. It uses a LLm to analyze the query and determine which category it belong to (e.g., **factual_lookup**, **filtering**, **comparison**, **ranking_selection**, **counting**, **out_of_scope**, etc.) or the question contains a fictional or meaningless role.
+
+5. **Instructions.json**: This file inside **assets** directory contains the instructions for the query router, which helps it determine how to route different types of queries.
+
+6. **generator2** : this component take the user query, it's category (which is determined by the query router) and the retrieved chunks, and generate a coherent answer to the user's question using a language model, but it also take into consideration the category of the question to generate a more accurate answer.
+
 
 ## Setup Instructions
 1. create a new conda environment and activate it:
