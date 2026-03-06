@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from collections import defaultdict
 from pydantic import BaseModel, Field
 import pymupdf4llm  
+from unstructured.partition.pdf import partition_pdf
+from unstructured.partition.docx import partition_docx
 
 from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader, Docx2txtLoader
 from langchain_core.documents import Document
@@ -267,6 +269,96 @@ class CVSpliter:
             doc.metadata["section"] = doc.metadata.get("section", "Unknown Section")
 
         return docs
+#################################################################################################
+class CVLoaderandSpliter:
+
+    def __init__(self):
+        root_path = os.path.dirname(os.path.abspath(__file__))
+        self.dir_path = os.path.join(root_path,"assets","temp_uploads")
+        self.loader = CVLoader()  # Reuse the document loader
+
+    def _clean_text(self,text):
+        text = text.replace("(cid:18)", " - ")
+        text = text.replace("(cid:127)", "•")
+        return text.strip()
+
+    def _is_heading(self, line: str) -> bool:
+        """Determine if a line should be treated as a markdown heading."""
+        stripped = line.strip()
+        if not stripped:
+            return False
+        if len(stripped) > 60:
+            return False
+        if stripped.endswith('.'):
+            return False
+        if len(stripped.split()) > 2:
+            return False
+        if any(word.isdigit() for word in stripped.split()):
+            return False
+        if stripped.istitle() or stripped.isupper():
+            return True
+        return False
+    
+    def split(self, document: Document) -> List[Document]:
+        """Split a Document into chunks based on detected headings."""
+        text = document.page_content
+        source = document.metadata.get("source", "")
+        candidate_name = os.path.splitext(ntpath.basename(source))[0]
+
+        # Determine file type from source path
+        is_pdf = source.lower().endswith(".pdf")
+        if is_pdf:
+            elements = partition_pdf(filename=source, strategy="hi_res", infer_table_structure=True)
+        else:
+            elements = partition_docx(filename=source, strategy="hi_res", infer_table_structure=True)
+     
+
+        final_chunks = []
+        doc = []
+        current_section = None
+
+        for el in elements:
+            text = self._clean_text(el.text)
+            if type(el).__name__ == "Title":
+                if self._is_heading(text):
+                    if doc:  # Only append if there's content
+                        final_chunks.append(
+                            Document(
+                                page_content="\n".join(doc),
+                                metadata={
+                                    "source": source,
+                                    "section": current_section,
+                                    "candidate_name": candidate_name
+                                }
+                            )
+                        )
+                        doc.clear()
+                    current_section = text
+            doc.append(text)
+
+        if doc:
+            final_chunks.append(
+                Document(
+                    page_content="\n".join(doc),
+                    metadata={
+                        "source": source,
+                        "section": current_section,
+                        "candidate_name": candidate_name
+                    }
+                )
+            )
+
+        return final_chunks
+    
+    def loadandsplit(self):
+        """Load documents from directory and split them into chunks."""
+        documents = self.loader.load_documents()
+        total_chunks = []
+        for doc in documents:
+            chunks = self.split(doc)
+            total_chunks.extend(chunks)
+        return total_chunks
+
 
 
 #################################################################################################
@@ -338,21 +430,14 @@ class CVPipeline:
     def __init__(self,collection_name: str):
         self.loader = CVLoader()
         # switch to our markdown-based splitter; CVChunker is no longer used anywhere
-        self.chunker = CVSpliter()
+        self.chunker = CVLoaderandSpliter()
         self.vector_manager = VectorStoreManager(collection_name)
 
     def run(self):
-        docs = self.loader.load_documents()
-
-        final_chunks = []
-        for doc in docs:
-            # CVSpliter expects a Document object
-            chunks = self.chunker.split(doc)
-            final_chunks.extend(chunks)
-
+        final_chunks = self.chunker.loadandsplit()
         self.vector_manager.add_documents(final_chunks)
         
-        print(f"Processed {len(docs)} documents into {len(final_chunks)} chunks and added to vector store.\n\n")
+        print(f"Processed  documents into {len(final_chunks)} chunks and added to vector store.\n\n")
         return final_chunks
 
    
