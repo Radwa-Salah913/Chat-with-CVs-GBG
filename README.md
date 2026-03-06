@@ -1,17 +1,25 @@
 # CVs Chat system 
-This repository contains a simple implementation of a Retrieval-Augmented Generation (RAG) system designed to answer questions about candidates based on their CVs. The system consists of three main components:
+This repository contains a simple implementation of a Retrieval-Augmented Generation (RAG) system designed to answer questions about candidates based on their CVs. The system consists of main components:
 
 1. **CVPipeline**: This component is responsible for processing CV documents, splitting them into chunks, and storing them in a vector database for efficient retrieval.
 
 - load the CVs from the specified directory, and we support multiple formats including PDF, and DOCX.
 
-- use **Document-Aware Chunking strategy** to split the CVs (CVs is consider semi-structured documents splited hadders and content, so it is the best strategy) ,applied it by hybrid approach between rule-based (using regex) and LLM-based methods. 
+- use **Document-Aware Chunking strategy** to split the CVs (CVs is consider semi-structured documents splited hadders and content, so it is the best strategy) 
 
-- use Qdrant as the vector database to store the chunks and their embeddings, and we follow HNSW algorithm for efficient similarity search.
+- we can applied it by hybrid approach between rule-based (using regex) and LLM-based methods, but there are some limitations to this approach like the variability in CV Headers so we can't determine a fixed set of headers to split the CVs + if there is a word like "experience" in the content of the CV not as a header it will cause a problem. ------> it try it **CVChunker class** in CV_pipeline.py file.
+
+- we can Splits CV documents into sections using markdown header detection **MarkdownHeaderTextSplitter** from langchain, but it is not good with most of the CVs and results with it are not good. ------> it try it **CVSpliter class** in CV_pipeline.py file.
+
+- the best approch that return the most good results is to use **partition_pdf** library from **Unstructured**, it detect each line in the file if is a **title** or not ,but it is alone is not enough beccause there are a limitation but I try to handle it as much as possible by using some rules to determine if the line is a title or not, and it return good results with most of the CVs. ------> it try it **CVLaderandSpliter class** in CV_pipeline.py file.
+
+- use **Qdrant** as the vector database to store the chunks and their embeddings, and we follow **HNSW** algorithm for efficient similarity search.
 
 2. **Retriever**: This component generates alternative queries based on the user's input and retrieves relevant chunks from the vector database.
 
-- we follow **Multi-Query Generation strategy** ( CVs usually contain technical terms specific to each person, the common issue with this type of document is terminology mismatch. Therefore, it would be a better strategy to use this approach) to generate multiple queries from the user's input using a language model, and then we retrieve relevant chunks for each generated query, and finally we aggregate the retrieved chunks to pass them to the generator.
+- we follow **Multi-Query Generation strategy** ( CVs usually contain technical terms specific to each person, the common issue with this type of document is terminology mismatch. Therefore, it would be a better strategy to use this approach) to generate multiple queries from the user's input using a language model.
+
+- I applied **Hybrid-RAG** Concept to retrieve relevant chunks , which means that I use both semantic search and keyword-based search.
 
 3. **Generator**: This component takes the retrieved chunks and generates a coherent answer to the user's question using a language model.
 
@@ -21,6 +29,7 @@ This repository contains a simple implementation of a Retrieval-Augmented Genera
 
 6. **generator2** : this component take the user query, it's category (which is determined by the query router) and the retrieved chunks, and generate a coherent answer to the user's question using a language model, but it also take into consideration the category of the question to generate a more accurate answer.
 
+- YOU CAN TRY BOTH GENERATOR AND GENERATOR2 TO SEE THE DIFFERENCE IN THE ANSWERS, BY CHANGING THE GENERATOR IN THE **app.py** FILE.
 
 ## Setup Instructions
 1. create a new conda environment and activate it:
