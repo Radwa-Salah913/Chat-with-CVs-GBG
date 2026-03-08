@@ -19,7 +19,9 @@ This repository contains a simple implementation of a Retrieval-Augmented Genera
 
 - we follow **Multi-Query Generation strategy** ( CVs usually contain technical terms specific to each person, the common issue with this type of document is terminology mismatch. Therefore, it would be a better strategy to use this approach) to generate multiple queries from the user's input using a language model.
 
-- I applied **Hybrid-RAG** Concept to retrieve relevant chunks , which means that I use both semantic search and keyword-based search.
+- I applied **Hybrid-RAG** Concept to retrieve relevant chunks , which means that I use both semantic search and keyword-based search, retrieve **15 chunk** from each of them and then combine the results and remove duplicates.
+
+- applied **Re-ranking** to the retrieved chunks using a language model to ensure that the most relevant information is prioritized in the final answer generation.
 
 3. **Generator**: This component takes the retrieved chunks and generates a coherent answer to the user's question using a language model.
 
